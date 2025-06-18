@@ -2,6 +2,7 @@ const express = require('express');
 const axios = require('axios');
 const cors = require('cors');
 const rateLimit = require('express-rate-limit');
+const path = require('path');
 require('dotenv').config();
 
 const app = express();
@@ -9,11 +10,11 @@ const PORT = process.env.PORT || 5000;
 const API_KEY = process.env.WEATHER_API_KEY;
 
 if (!API_KEY) {
-  console.error(' Missing WEATHER_API_KEY in environment variables');
+  console.error('❌ Missing WEATHER_API_KEY in environment variables');
   process.exit(1);
 }
 
-// City standardization with more comprehensive mappings
+// 🌍 City aliases
 const cityMappings = {
   'bengaluru': 'Bangalore',
   'bangalore': 'Bangalore',
@@ -34,17 +35,19 @@ function standardizeCityName(city) {
   return cityMappings[lowerCity] || city.charAt(0).toUpperCase() + city.slice(1).toLowerCase();
 }
 
+// 📦 Middleware
+app.use(cors());
+app.use(express.json());
+app.use(express.static(path.join(__dirname, 'public')));
+app.set('json spaces', 2);
+
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 100
 });
-
-app.use(cors());
-app.use(express.json());
 app.use(limiter);
-app.set('json spaces', 2);
 
-// Enhanced security headers
+// 🛡️ Security Headers
 app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'DENY');
@@ -52,22 +55,18 @@ app.use((req, res, next) => {
   next();
 });
 
+// 🏠 Serve index.html at root
 app.get('/', (req, res) => {
-  res.status(200).json({ 
-    status: 'healthy',
-    message: 'Weather API is running',
-    endpoints: {
-      weather: '/weather?city={city_name}'
-    }
-  });
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+// 🌤️ Weather API
 app.get('/weather', async (req, res) => {
   try {
     const city = req.query.city?.trim();
-    
+
     if (!city) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: 'City parameter is required',
         example: '/weather?city=London',
         available_aliases: Object.entries(cityMappings)
@@ -99,12 +98,10 @@ app.get('/weather', async (req, res) => {
       })
     ]);
 
-    // Validate response structure
     if (!currentRes.data?.main || !forecastRes.data?.list) {
       throw new Error('Incomplete weather data received from API');
     }
 
-    // Format response for frontend
     const responseData = {
       city: standardizedCity,
       current: {
@@ -142,11 +139,11 @@ app.get('/weather', async (req, res) => {
     res.json(responseData);
 
   } catch (error) {
-    console.error(' Error:', error.message);
-    
+    console.error('❌ Error:', error.message);
+
     let status = 500;
     let message = 'Error fetching weather data';
-    
+
     if (error.response) {
       status = error.response.status;
       if (error.response.data?.cod === '404') {
@@ -157,17 +154,17 @@ app.get('/weather', async (req, res) => {
     } else if (error.code === 'ECONNABORTED') {
       message = 'Request to weather service timed out';
     }
-    
-    res.status(status).json({ 
+
+    res.status(status).json({
       error: message,
       suggestion: 'Try checking the city name or try again later'
     });
   }
 });
 
-// 404 Handler
+// ❓ 404 handler
 app.use((req, res) => {
-  res.status(404).json({ 
+  res.status(404).json({
     error: 'Endpoint not found',
     available_endpoints: {
       weather: '/weather?city={city_name}'
@@ -175,20 +172,22 @@ app.use((req, res) => {
   });
 });
 
-// Error Handler
+// ⚠️ Error handler
 app.use((err, req, res, next) => {
   console.error('⚠️ Server Error:', err.stack);
-  res.status(500).json({ 
+  res.status(500).json({
     error: 'Internal server error',
     message: err.message
   });
 });
 
+// 🚀 Start server
 app.listen(PORT, () => {
-  console.log(` Weather API running on port ${PORT}`);
-  console.log(` http://localhost:${PORT}`);
+  console.log(`✅ Weather API running on port ${PORT}`);
+  console.log(`🌐 http://localhost:${PORT}`);
 });
 
+// 🔥 Graceful error handling
 process.on('unhandledRejection', err => {
   console.error('Unhandled Rejection:', err);
   process.exit(1);
