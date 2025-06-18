@@ -323,7 +323,7 @@
       `;
       
       try {
-        const response = await fetch(`https://weather-forecast-zlov.onrender.com?city=${encodeURIComponent(city)}`);
+        const response = await fetch(`https://weather-forecast-zlov.onrender.com`);
         const data = await response.json();
         
         if (!response.ok) {
